@@ -119,7 +119,7 @@ class SkyFlight:
         # Cockpit and cabin windows
         pygame.draw.polygon(sprite, (30, 99, 145), [(198, 80), (221, 82), (237, 88), (200, 88)])
         for x in (146, 163, 180):
-            pygame.draw.roundrect(sprite, (80, 154, 190), (x, 83, 10, 7), 3)
+            pygame.draw.rect(sprite, (80, 154, 190), (x, 83, 10, 7), border_radius=3)
         # Red stripe and engine nacelles
         pygame.draw.polygon(sprite, (217, 60, 61), [(80, 94), (167, 94), (225, 91), (218, 95), (164, 98), (82, 98)])
         pygame.draw.ellipse(sprite, (196, 211, 219), (114, 115, 58, 15))

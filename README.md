@@ -1,6 +1,6 @@
 # SkyFlight
 
-**A 2D computer graphics animation built with Python and Pygame.** SkyFlight turns the synopsis into an interactive desktop experience: a hand-drawn passenger aircraft crosses a layered landscape while its propeller spins, clouds drift, and the scenery scrolls at different speeds.
+**A 2D computer graphics animation built with Python and Pygame Community Edition (pygame-ce).** SkyFlight turns the synopsis into an interactive desktop experience: a hand-drawn passenger aircraft crosses a layered landscape while its propeller spins, clouds drift, and the scenery scrolls at different speeds.
 
 > This is a visual learning model for 2D translation, rotation, parallax and frame-by-frame animation. It does not model aerodynamics.
 
@@ -16,7 +16,7 @@
 
 ## Run it
 
-Requires Python 3.10+ and Pygame 2.5+.
+Requires Python 3.10+ and pygame-ce 2.5.8+ (the package imports as `pygame`).
 
 ```powershell
 py -m venv .venv
@@ -62,7 +62,7 @@ skyflight/
 
 - Windows 10/11, macOS, or Linux
 - Python 3.10 or newer
-- Pygame 2.5 or newer
+- pygame-ce 2.5.8 or newer
 - Any modern desktop computer (4 GB RAM recommended)
 
 ## License

@@ -14,7 +14,6 @@
 - Fullscreen mode with `F11`
 - Day/night scenery toggle with stars and a crescent moon (`N` or the on-screen control)
 - Flight data panel with simulated altitude, airspeed, and heading
-- Runway approach, touchdown, and takeoff sequence (`L`)
 - No downloaded art assets: every scene element is drawn with Pygame primitives
 
 ## Run it
@@ -39,11 +38,10 @@ On macOS/Linux, activate with `source .venv/bin/activate`, then run the same ins
 | Reset flight | `R` or the on-screen button |
 | Toggle fullscreen | `F11` |
 | Toggle day/night scene | `N` or the on-screen button |
-| Request landing / take off | `L` or the on-screen button |
 | Quit | `Esc` or close the window |
 
 Flight speed ranges from 0.2× to 3.0×. The window can be resized; the scene scales to fit.
-The flight data panel and runway sequence are illustrative animation, not real aircraft telemetry or physics.
+The flight data panel is illustrative animation data, not real aircraft telemetry or physics.
 
 ## Project structure
 

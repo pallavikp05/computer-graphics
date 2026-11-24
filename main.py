@@ -59,6 +59,9 @@ class SkyFlight:
         self.paused = False
         self.fullscreen = False
         self.night_mode = False
+        self.flight_phase = "FLIGHT"
+        self.landing_progress = 0.0
+        self.waiting_for_runway = False
         self.speed = 1.0
         self.elapsed = 0.0
         self.plane_x = -130.0
@@ -124,6 +127,17 @@ class SkyFlight:
             pygame.draw.line(self.canvas, grass, (xx, 510), (xx-32, 568), 3)
             pygame.draw.line(self.canvas, grass, (xx+18, 515), (xx+49, 561), 3)
 
+        # A marked runway gives the landing sequence a visible destination.
+        runway = pygame.Rect(350, 506, 690, 104)
+        runway_color = (40, 48, 64) if self.night_mode else (67, 77, 84)
+        pygame.draw.rect(self.canvas, runway_color, runway, border_radius=8)
+        pygame.draw.rect(self.canvas, (157, 174, 176), runway, 2, border_radius=8)
+        pygame.draw.line(self.canvas, (226, 231, 218), (370, 515), (1020, 515), 3)
+        pygame.draw.line(self.canvas, (226, 231, 218), (370, 601), (1020, 601), 3)
+        for marker_x in range(390, 990, 78):
+            pygame.draw.rect(self.canvas, (235, 237, 225), (marker_x, 555, 42, 5), border_radius=2)
+        self.canvas.blit(self.small.render("27", True, (245, 245, 231)), (935, 525))
+
     def draw_airplane(self) -> None:
         # Aircraft is drawn in local coordinates, then rotated as one sprite.
         sprite = pygame.Surface((300, 180), pygame.SRCALPHA)
@@ -133,6 +147,10 @@ class SkyFlight:
         # Main wings with a subtle shaded lower edge
         pygame.draw.polygon(sprite, (27, 91, 155), [(124, 80), (83, 16), (119, 22), (190, 79), (204, 90)])
         pygame.draw.polygon(sprite, (20, 72, 130), [(128, 91), (89, 151), (126, 143), (191, 96), (202, 88)])
+        if self.flight_phase in ("APPROACH", "LANDED", "TAKEOFF"):
+            for gear_x, gear_y in ((151, 101), (218, 99)):
+                pygame.draw.line(sprite, (57, 66, 73), (gear_x, gear_y), (gear_x-2, gear_y+20), 3)
+                pygame.draw.circle(sprite, (32, 39, 46), (gear_x-2, gear_y+23), 5)
         # Fuselage, nose points right
         pygame.draw.polygon(sprite, (244, 248, 246), [(28, 87), (76, 77), (167, 77), (232, 82), (262, 90), (232, 98), (162, 101), (75, 98), (32, 94)])
         pygame.draw.polygon(sprite, (210, 224, 234), [(75, 96), (162, 98), (232, 95), (247, 91), (231, 99), (162, 104), (75, 101)])
@@ -152,7 +170,7 @@ class SkyFlight:
             pygame.draw.line(sprite, (36, 50, 67), (cx-ex*25, cy-ey*25), (cx+ex*25, cy+ey*25), 4)
         pygame.draw.circle(sprite, (220, 68, 57), (cx, cy), 6)
         rotated = pygame.transform.rotozoom(sprite, math.sin(self.elapsed*1.4)*2.2, 1.0)
-        y = 320 + math.sin(self.elapsed*2.0)*16
+        y = 320 + math.sin(self.elapsed*2.0)*16 + self.landing_progress*145
         self.canvas.blit(rotated, rotated.get_rect(center=(round(self.plane_x), round(y))))
 
     def pill(self, text: str, center: tuple[int, int], active: bool = False) -> pygame.Rect:
@@ -171,7 +189,16 @@ class SkyFlight:
         self.canvas.blit(self.title.render("SKYFLIGHT", True, WHITE), (44, 30))
         self.canvas.blit(self.small.render("2D ANIMATION STUDIO  /  FLIGHT 01", True, (157, 202, 224)), (46, 65))
         # Live status panel
-        status = "PAUSED" if self.paused else "IN FLIGHT"
+        if self.paused:
+            status = "PAUSED"
+        elif self.flight_phase == "APPROACH":
+            status = "APPROACH QUEUED" if self.waiting_for_runway else "LANDING APPROACH"
+        elif self.flight_phase == "LANDED":
+            status = "LANDED"
+        elif self.flight_phase == "TAKEOFF":
+            status = "TAKEOFF"
+        else:
+            status = "IN FLIGHT"
         pygame.draw.circle(self.canvas, (250, 185, 75) if self.paused else (107, 225, 168), (44, 127), 5)
         self.canvas.blit(self.small.render(f"{status}   •   SPEED {self.speed:.1f}×", True, (236, 248, 252)), (57, 119))
         # Compact flight instrument card.
@@ -179,20 +206,29 @@ class SkyFlight:
         pygame.draw.rect(self.canvas, (12, 37, 62), panel, border_radius=18)
         pygame.draw.rect(self.canvas, (84, 170, 211), (panel.left, panel.top+17, 4, 46), border_radius=2)
         self.canvas.blit(self.small.render("SIMULATED FLIGHT DATA", True, (157, 202, 224)), (panel.left+18, panel.top+15))
-        altitude = round(3200 + math.sin(self.elapsed * 0.7) * 140)
-        airspeed = round(175 + self.speed * 52)
+        altitude = round((3200 + math.sin(self.elapsed * 0.7) * 140) * (1.0 - self.landing_progress))
+        airspeed = 0 if self.flight_phase == "LANDED" else round((175 + self.speed * 52) * (1.0 - self.landing_progress))
         self.canvas.blit(self.font.render(f"ALT  {altitude:,} ft", True, WHITE), (panel.left+18, panel.top+43))
         self.canvas.blit(self.font.render(f"IAS   {airspeed} kt", True, WHITE), (panel.left+18, panel.top+70))
         heading = round((90 + math.sin(self.elapsed * 0.12) * 3) % 360)
         self.canvas.blit(self.small.render(f"HDG {heading:03d}°     {('NIGHT' if self.night_mode else 'DAY')}", True, (157, 202, 224)), (panel.left+18, panel.top+105))
         # Controls bar
-        pygame.draw.rect(self.canvas, (12, 37, 62), (WIDTH//2-330, HEIGHT-76, 660, 54), border_radius=18)
-        self.buttons["pause"] = self.pill("▶  Resume" if self.paused else "Ⅱ  Pause", (WIDTH//2-245, HEIGHT-49), self.paused)
-        self.buttons["slower"] = self.pill("−", (WIDTH//2-135, HEIGHT-49))
-        self.buttons["faster"] = self.pill("+", (WIDTH//2-70, HEIGHT-49))
-        self.buttons["reset"] = self.pill("↺  Reset", (WIDTH//2+34, HEIGHT-49))
-        self.buttons["daynight"] = self.pill("☼  Day" if self.night_mode else "☾  Night", (WIDTH//2+200, HEIGHT-49), self.night_mode)
-        hint = self.small.render("SPACE pause   ·   ↑ / ↓ speed   ·   N day/night   ·   R reset   ·   ESC quit", True, (18, 58, 79))
+        pygame.draw.rect(self.canvas, (12, 37, 62), (WIDTH//2-410, HEIGHT-76, 820, 54), border_radius=18)
+        self.buttons["pause"] = self.pill("▶  Resume" if self.paused else "Ⅱ  Pause", (WIDTH//2-330, HEIGHT-49), self.paused)
+        self.buttons["slower"] = self.pill("−", (WIDTH//2-205, HEIGHT-49))
+        self.buttons["faster"] = self.pill("+", (WIDTH//2-142, HEIGHT-49))
+        self.buttons["reset"] = self.pill("↺  Reset", (WIDTH//2-25, HEIGHT-49))
+        self.buttons["daynight"] = self.pill("☼  Day" if self.night_mode else "☾  Night", (WIDTH//2+105, HEIGHT-49), self.night_mode)
+        if self.flight_phase == "LANDED":
+            landing_label = "↗  Take off"
+        elif self.flight_phase == "APPROACH":
+            landing_label = "✕  Cancel"
+        elif self.flight_phase == "TAKEOFF":
+            landing_label = "↗  Taking off"
+        else:
+            landing_label = "↓  Land"
+        self.buttons["landing"] = self.pill(landing_label, (WIDTH//2+270, HEIGHT-49), self.flight_phase != "FLIGHT")
+        hint = self.small.render("SPACE pause   ·   ↑ / ↓ speed   ·   N day/night   ·   L land   ·   R reset   ·   ESC quit", True, (18, 58, 79))
         self.canvas.blit(hint, hint.get_rect(center=(WIDTH//2, HEIGHT-96)))
 
     def reset(self) -> None:
@@ -201,6 +237,29 @@ class SkyFlight:
         self.propeller_angle = 0
         self.speed = 1.0
         self.paused = False
+        self.flight_phase = "FLIGHT"
+        self.landing_progress = 0.0
+        self.waiting_for_runway = False
+
+    def toggle_landing(self) -> None:
+        if self.flight_phase == "TAKEOFF":
+            return
+        if self.flight_phase == "FLIGHT":
+            self.flight_phase = "APPROACH"
+            self.landing_progress = 0.0
+            self.waiting_for_runway = self.plane_x >= 500
+        elif self.flight_phase == "APPROACH":
+            self.flight_phase = "FLIGHT"
+            self.landing_progress = 0.0
+            self.waiting_for_runway = False
+        elif self.flight_phase == "LANDED":
+            self.flight_phase = "TAKEOFF"
+            self.landing_progress = 1.0
+            self.waiting_for_runway = False
+        else:
+            self.flight_phase = "FLIGHT"
+            self.landing_progress = 0.0
+            self.waiting_for_runway = False
 
     def events(self) -> None:
         for event in pygame.event.get():
@@ -219,6 +278,8 @@ class SkyFlight:
                     self.paused = not self.paused
                 elif event.key == pygame.K_n:
                     self.night_mode = not self.night_mode
+                elif event.key == pygame.K_l:
+                    self.toggle_landing()
                 elif event.key in (pygame.K_UP, pygame.K_EQUALS, pygame.K_PLUS):
                     self.speed = min(3.0, self.speed + .2)
                 elif event.key in (pygame.K_DOWN, pygame.K_MINUS):
@@ -240,18 +301,41 @@ class SkyFlight:
                     self.reset()
                 elif self.buttons.get("daynight", pygame.Rect(0,0,0,0)).collidepoint(point):
                     self.night_mode = not self.night_mode
+                elif self.buttons.get("landing", pygame.Rect(0,0,0,0)).collidepoint(point):
+                    self.toggle_landing()
 
     def run(self) -> None:
         while self.running:
             dt = min(self.clock.tick(FPS)/1000, .05)
             self.events()
             if not self.paused:
-                self.elapsed += dt
-                self.plane_x += 150 * self.speed * dt
-                if self.plane_x > WIDTH + 160:
-                    self.plane_x = -150
-                self.propeller_angle = (self.propeller_angle + 1100 * dt * self.speed) % 360
-            self.draw_background(dt if not self.paused else 0)
+                if self.flight_phase != "LANDED":
+                    self.elapsed += dt
+                if self.flight_phase == "FLIGHT":
+                    self.plane_x += 150 * self.speed * dt
+                    if self.plane_x > WIDTH + 160:
+                        self.plane_x = -150
+                elif self.flight_phase == "APPROACH":
+                    if self.waiting_for_runway:
+                        self.plane_x += 150 * self.speed * dt
+                        if self.plane_x > WIDTH + 160:
+                            self.plane_x = -150
+                            self.waiting_for_runway = False
+                    else:
+                        approach_speed = max(.65, min(self.speed, 1.25))
+                        self.plane_x += 100 * approach_speed * dt
+                        self.landing_progress = min(1.0, max(0.0, (self.plane_x - 500) / 360))
+                        if self.landing_progress >= 1.0:
+                            self.flight_phase = "LANDED"
+                elif self.flight_phase == "TAKEOFF":
+                    approach_speed = max(.65, min(self.speed, 1.25))
+                    self.plane_x += 100 * approach_speed * dt
+                    self.landing_progress = max(0.0, 1.0 - (self.plane_x - 860) / 220)
+                    if self.landing_progress <= 0.0:
+                        self.flight_phase = "FLIGHT"
+                propeller_speed = 1100 if self.flight_phase != "LANDED" else 220
+                self.propeller_angle = (self.propeller_angle + propeller_speed * dt * max(.4, self.speed)) % 360
+            self.draw_background(dt if not self.paused and self.flight_phase != "LANDED" else 0)
             self.draw_airplane()
             self.draw_hud()
             scaled = pygame.transform.smoothscale(self.canvas, self.screen.get_size())

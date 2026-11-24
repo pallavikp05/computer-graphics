@@ -11,6 +11,7 @@
 - Continuous wrap-around flight and multi-speed parallax
 - Clickable pause, reset and speed buttons; keyboard shortcuts
 - Resizable window with a consistent layout
+- Fullscreen mode with `F11`
 - No downloaded art assets: every scene element is drawn with Pygame primitives
 
 ## Run it
@@ -33,6 +34,7 @@ On macOS/Linux, activate with `source .venv/bin/activate`, then run the same ins
 | Pause / resume | `Space` or the on-screen button |
 | Increase / decrease speed | `↑` / `↓` or on-screen `+` / `−` |
 | Reset flight | `R` or the on-screen button |
+| Toggle fullscreen | `F11` |
 | Quit | `Esc` or close the window |
 
 Flight speed ranges from 0.2× to 3.0×. The window can be resized; the scene scales to fit.

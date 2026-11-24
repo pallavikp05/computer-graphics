@@ -57,6 +57,7 @@ class SkyFlight:
         self.title = pygame.font.SysFont("segoeui", 25, bold=True)
         self.running = True
         self.paused = False
+        self.fullscreen = False
         self.speed = 1.0
         self.elapsed = 0.0
         self.plane_x = -130.0
@@ -176,6 +177,12 @@ class SkyFlight:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
+                elif event.key == pygame.K_F11:
+                    self.fullscreen = not self.fullscreen
+                    if self.fullscreen:
+                        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+                    else:
+                        self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
                 elif event.key in (pygame.K_UP, pygame.K_EQUALS, pygame.K_PLUS):

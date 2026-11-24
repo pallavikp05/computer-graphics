@@ -35,9 +35,9 @@ class Cloud:
             self.x = WIDTH + random.randint(80, 280)
             self.y = random.randint(70, 300)
 
-    def draw(self, surface: pygame.Surface) -> None:
+    def draw(self, surface: pygame.Surface, night: bool = False) -> None:
         layer = pygame.Surface((int(170 * self.scale), int(76 * self.scale)), pygame.SRCALPHA)
-        color = (255, 255, 255, self.alpha)
+        color = (205, 218, 246, self.alpha) if night else (255, 255, 255, self.alpha)
         s = self.scale
         pygame.draw.ellipse(layer, color, (int(8*s), int(38*s), int(115*s), int(27*s)))
         for x, y, r in ((42, 37, 23), (72, 24, 31), (105, 39, 22)):
@@ -58,10 +58,13 @@ class SkyFlight:
         self.running = True
         self.paused = False
         self.fullscreen = False
+        self.night_mode = False
         self.speed = 1.0
         self.elapsed = 0.0
         self.plane_x = -130.0
         self.propeller_angle = 0.0
+        random.seed(18)
+        self.stars = [(random.randrange(25, WIDTH-25), random.randrange(25, 390), random.choice((1, 1, 2))) for _ in range(72)]
         self.clouds = [Cloud(x, y, s, v, a) for x, y, s, v, a in (
             (60, 98, .82, 15, 185), (350, 170, 1.12, 21, 210),
             (720, 82, .72, 13, 175), (900, 240, 1.0, 18, 195),
@@ -69,40 +72,57 @@ class SkyFlight:
         self.buttons: dict[str, pygame.Rect] = {}
 
     def draw_background(self, dt: float) -> None:
+        sky_top, sky_bottom = ((7, 17, 48), (59, 67, 112)) if self.night_mode else (SKY_TOP, SKY_BOTTOM)
         for y in range(HEIGHT):
-            pygame.draw.line(self.canvas, lerp_color(SKY_TOP, SKY_BOTTOM, y / HEIGHT), (0, y), (WIDTH, y))
-        # Warm sun halo and sun disk.
+            pygame.draw.line(self.canvas, lerp_color(sky_top, sky_bottom, y / HEIGHT), (0, y), (WIDTH, y))
+        if self.night_mode:
+            for x, y, radius in self.stars:
+                pygame.draw.circle(self.canvas, (226, 237, 255), (x, y), radius)
+        # Sun by day, crescent moon at night.
         glow = pygame.Surface((190, 190), pygame.SRCALPHA)
+        glow_color = (192, 207, 255) if self.night_mode else (255, 227, 145)
         for radius, alpha in ((88, 15), (68, 20), (48, 28)):
-            pygame.draw.circle(glow, (255, 227, 145, alpha), (95, 95), radius)
-        self.canvas.blit(glow, (820, 34))
-        pygame.draw.circle(self.canvas, (255, 238, 174), (915, 129), 30)
-        pygame.draw.circle(self.canvas, (255, 247, 213), (906, 120), 7)
+            pygame.draw.circle(glow, (*glow_color, alpha), (95, 95), radius)
+        self.canvas.blit(glow, (625, 85))
+        if self.night_mode:
+            pygame.draw.circle(self.canvas, (228, 235, 255), (720, 180), 25)
+            pygame.draw.circle(self.canvas, sky_top, (731, 169), 23)
+        else:
+            pygame.draw.circle(self.canvas, (255, 238, 174), (720, 180), 30)
+            pygame.draw.circle(self.canvas, (255, 247, 213), (711, 171), 7)
 
         for cloud in self.clouds:
             cloud.update(dt, self.speed)
-            cloud.draw(self.canvas)
+            cloud.draw(self.canvas, self.night_mode)
 
         # Distant peaks and nearer foothills scroll at different rates.
         far_offset = (self.elapsed * 8 * self.speed) % 520
         near_offset = (self.elapsed * 20 * self.speed) % 430
         for offset in (-520, 0, 520, 1040):
             x = offset - far_offset
-            pygame.draw.polygon(self.canvas, (104, 158, 174), [(x-90, 490), (x+105, 285), (x+270, 490)])
-            pygame.draw.polygon(self.canvas, (224, 238, 232), [(x+64, 329), (x+105, 285), (x+146, 330), (x+120, 321), (x+105, 338), (x+91, 320)])
-            pygame.draw.polygon(self.canvas, (121, 177, 180), [(x+175, 490), (x+355, 338), (x+540, 490)])
+            far_color = (50, 68, 108) if self.night_mode else (104, 158, 174)
+            snow_color = (151, 165, 198) if self.night_mode else (224, 238, 232)
+            second_peak = (59, 83, 119) if self.night_mode else (121, 177, 180)
+            pygame.draw.polygon(self.canvas, far_color, [(x-90, 490), (x+105, 285), (x+270, 490)])
+            pygame.draw.polygon(self.canvas, snow_color, [(x+64, 329), (x+105, 285), (x+146, 330), (x+120, 321), (x+105, 338), (x+91, 320)])
+            pygame.draw.polygon(self.canvas, second_peak, [(x+175, 490), (x+355, 338), (x+540, 490)])
         for offset in (-430, 0, 430, 860, 1290):
             x = offset - near_offset
-            pygame.draw.polygon(self.canvas, (83, 151, 139), [(x-60, 510), (x+130, 411), (x+285, 510)])
-            pygame.draw.polygon(self.canvas, (104, 168, 143), [(x+110, 510), (x+305, 430), (x+465, 510)])
+            hill_far = (36, 79, 83) if self.night_mode else (83, 151, 139)
+            hill_near = (43, 96, 82) if self.night_mode else (104, 168, 143)
+            pygame.draw.polygon(self.canvas, hill_far, [(x-60, 510), (x+130, 411), (x+285, 510)])
+            pygame.draw.polygon(self.canvas, hill_near, [(x+110, 510), (x+305, 430), (x+465, 510)])
 
-        pygame.draw.rect(self.canvas, (60, 137, 91), (0, 502, WIDTH, HEIGHT-502))
-        pygame.draw.rect(self.canvas, (119, 177, 112), (0, 502, WIDTH, 8))
+        ground = (26, 72, 59) if self.night_mode else (60, 137, 91)
+        edge = (48, 107, 78) if self.night_mode else (119, 177, 112)
+        grass = (43, 95, 70) if self.night_mode else (76, 151, 99)
+        pygame.draw.rect(self.canvas, ground, (0, 502, WIDTH, HEIGHT-502))
+        pygame.draw.rect(self.canvas, edge, (0, 502, WIDTH, 8))
         ground_offset = (self.elapsed * 105 * self.speed) % 90
         for x in range(-100, WIDTH + 100, 90):
             xx = x - ground_offset
-            pygame.draw.line(self.canvas, (76, 151, 99), (xx, 510), (xx-32, 568), 3)
-            pygame.draw.line(self.canvas, (76, 151, 99), (xx+18, 515), (xx+49, 561), 3)
+            pygame.draw.line(self.canvas, grass, (xx, 510), (xx-32, 568), 3)
+            pygame.draw.line(self.canvas, grass, (xx+18, 515), (xx+49, 561), 3)
 
     def draw_airplane(self) -> None:
         # Aircraft is drawn in local coordinates, then rotated as one sprite.
@@ -154,13 +174,25 @@ class SkyFlight:
         status = "PAUSED" if self.paused else "IN FLIGHT"
         pygame.draw.circle(self.canvas, (250, 185, 75) if self.paused else (107, 225, 168), (44, 127), 5)
         self.canvas.blit(self.small.render(f"{status}   •   SPEED {self.speed:.1f}×", True, (236, 248, 252)), (57, 119))
+        # Compact flight instrument card.
+        panel = pygame.Rect(WIDTH-280, 22, 252, 132)
+        pygame.draw.rect(self.canvas, (12, 37, 62), panel, border_radius=18)
+        pygame.draw.rect(self.canvas, (84, 170, 211), (panel.left, panel.top+17, 4, 46), border_radius=2)
+        self.canvas.blit(self.small.render("SIMULATED FLIGHT DATA", True, (157, 202, 224)), (panel.left+18, panel.top+15))
+        altitude = round(3200 + math.sin(self.elapsed * 0.7) * 140)
+        airspeed = round(175 + self.speed * 52)
+        self.canvas.blit(self.font.render(f"ALT  {altitude:,} ft", True, WHITE), (panel.left+18, panel.top+43))
+        self.canvas.blit(self.font.render(f"IAS   {airspeed} kt", True, WHITE), (panel.left+18, panel.top+70))
+        heading = round((90 + math.sin(self.elapsed * 0.12) * 3) % 360)
+        self.canvas.blit(self.small.render(f"HDG {heading:03d}°     {('NIGHT' if self.night_mode else 'DAY')}", True, (157, 202, 224)), (panel.left+18, panel.top+105))
         # Controls bar
-        pygame.draw.rect(self.canvas, (12, 37, 62), (WIDTH//2-230, HEIGHT-76, 460, 54), border_radius=18)
-        self.buttons["pause"] = self.pill("▶  Resume" if self.paused else "Ⅱ  Pause", (WIDTH//2-153, HEIGHT-49), self.paused)
-        self.buttons["slower"] = self.pill("−", (WIDTH//2-55, HEIGHT-49))
-        self.buttons["faster"] = self.pill("+", (WIDTH//2+4, HEIGHT-49))
-        self.buttons["reset"] = self.pill("↺  Reset", (WIDTH//2+132, HEIGHT-49))
-        hint = self.small.render("SPACE pause   ·   ↑ / ↓ speed   ·   R reset   ·   ESC quit", True, (18, 58, 79))
+        pygame.draw.rect(self.canvas, (12, 37, 62), (WIDTH//2-330, HEIGHT-76, 660, 54), border_radius=18)
+        self.buttons["pause"] = self.pill("▶  Resume" if self.paused else "Ⅱ  Pause", (WIDTH//2-245, HEIGHT-49), self.paused)
+        self.buttons["slower"] = self.pill("−", (WIDTH//2-135, HEIGHT-49))
+        self.buttons["faster"] = self.pill("+", (WIDTH//2-70, HEIGHT-49))
+        self.buttons["reset"] = self.pill("↺  Reset", (WIDTH//2+34, HEIGHT-49))
+        self.buttons["daynight"] = self.pill("☼  Day" if self.night_mode else "☾  Night", (WIDTH//2+200, HEIGHT-49), self.night_mode)
+        hint = self.small.render("SPACE pause   ·   ↑ / ↓ speed   ·   N day/night   ·   R reset   ·   ESC quit", True, (18, 58, 79))
         self.canvas.blit(hint, hint.get_rect(center=(WIDTH//2, HEIGHT-96)))
 
     def reset(self) -> None:
@@ -185,6 +217,8 @@ class SkyFlight:
                         self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
                 elif event.key == pygame.K_SPACE:
                     self.paused = not self.paused
+                elif event.key == pygame.K_n:
+                    self.night_mode = not self.night_mode
                 elif event.key in (pygame.K_UP, pygame.K_EQUALS, pygame.K_PLUS):
                     self.speed = min(3.0, self.speed + .2)
                 elif event.key in (pygame.K_DOWN, pygame.K_MINUS):
@@ -204,6 +238,8 @@ class SkyFlight:
                     self.speed = min(3.0, self.speed+.2)
                 elif self.buttons.get("reset", pygame.Rect(0,0,0,0)).collidepoint(point):
                     self.reset()
+                elif self.buttons.get("daynight", pygame.Rect(0,0,0,0)).collidepoint(point):
+                    self.night_mode = not self.night_mode
 
     def run(self) -> None:
         while self.running:

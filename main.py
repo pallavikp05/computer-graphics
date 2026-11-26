@@ -174,17 +174,6 @@ class SkyFlight:
         status = "PAUSED" if self.paused else "IN FLIGHT"
         pygame.draw.circle(self.canvas, (250, 185, 75) if self.paused else (107, 225, 168), (44, 127), 5)
         self.canvas.blit(self.small.render(f"{status}   •   SPEED {self.speed:.1f}×", True, (236, 248, 252)), (57, 119))
-        # Compact flight instrument card.
-        panel = pygame.Rect(WIDTH-280, 22, 252, 132)
-        pygame.draw.rect(self.canvas, (12, 37, 62), panel, border_radius=18)
-        pygame.draw.rect(self.canvas, (84, 170, 211), (panel.left, panel.top+17, 4, 46), border_radius=2)
-        self.canvas.blit(self.small.render("SIMULATED FLIGHT DATA", True, (157, 202, 224)), (panel.left+18, panel.top+15))
-        altitude = round(3200 + math.sin(self.elapsed * 0.7) * 140)
-        airspeed = round(175 + self.speed * 52)
-        self.canvas.blit(self.font.render(f"ALT  {altitude:,} ft", True, WHITE), (panel.left+18, panel.top+43))
-        self.canvas.blit(self.font.render(f"IAS   {airspeed} kt", True, WHITE), (panel.left+18, panel.top+70))
-        heading = round((90 + math.sin(self.elapsed * 0.12) * 3) % 360)
-        self.canvas.blit(self.small.render(f"HDG {heading:03d}°     {('NIGHT' if self.night_mode else 'DAY')}", True, (157, 202, 224)), (panel.left+18, panel.top+105))
         # Controls bar
         pygame.draw.rect(self.canvas, (12, 37, 62), (WIDTH//2-330, HEIGHT-76, 660, 54), border_radius=18)
         self.buttons["pause"] = self.pill("▶  Resume" if self.paused else "Ⅱ  Pause", (WIDTH//2-245, HEIGHT-49), self.paused)
